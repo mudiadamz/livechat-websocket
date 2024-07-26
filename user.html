@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Chat</title>
+    <style>
+        #chat {
+            background: #ddd;
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        #chat>div:nth-child(even) {
+            background: #eee;
+        }
+        #chat>div:nth-child(odd) {
+            background: #fff;
+        }
+        #message {
+            width: calc(100% - 60px);
+        }
+        #send {
+            width: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Chat</h1>
+    <div id="chat"></div>
+    <input type="text" id="message" placeholder="Type your message...">
+    <button id="send">Send</button>
+    
+    <script>
+        const ws = new WebSocket('ws://localhost:5000/ws');
+        
+        const chat = document.getElementById('chat');
+        const messageInput = document.getElementById('message');
+        const sendButton = document.getElementById('send');
+        let userId = localStorage.getItem('userId');
+
+        ws.onopen = () => {
+            if (!userId) {
+                // Register user upon connection
+                ws.send(JSON.stringify({ type: 'registerUser' }));
+            } else {
+                // Send the userId to the server
+                ws.send(JSON.stringify({ type: 'existingUser', userId }));
+            }
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'userId') {
+                userId = data.userId; // Assign the user ID
+                localStorage.setItem('userId', userId);
+            } else if (data.type === 'message' && data.role === 'admin') {
+                const message = document.createElement('div');
+                message.textContent = 'Admin: ' + data.message;
+                chat.appendChild(message);
+                chat.scrollTop = chat.scrollHeight;
+            }
+        };
+
+        sendButton.addEventListener('click', () => {
+            const message = messageInput.value;
+            if (message && userId) {
+                ws.send(JSON.stringify({ type: 'message', role: 'user', userId, message }));
+                const messageElement = document.createElement('div');
+                messageElement.textContent = 'You: ' + message;
+                chat.appendChild(messageElement);
+                messageInput.value = '';
+                chat.scrollTop = chat.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>

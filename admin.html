@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Chat</title>
+    <style>
+        .user-chat {
+            background: #ddd;
+            border: 1px solid #ccc;
+            height: 200px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        .user-chat>div:nth-child(even) {
+            background: #eee;
+        }
+        .user-chat>div:nth-child(odd) {
+            background: #fff;
+        }
+        .message-input {
+            width: calc(100% - 60px);
+        }
+        .send-button {
+            width: 50px;
+        }
+    </style>
+</head>
+<body>
+<h1>Admin Chat</h1>
+<div id="chats"></div>
+
+<script>
+    const chats = {};
+    const ws = new WebSocket('ws://localhost:5000/ws'); // WebSocket server URL
+
+    ws.onopen = () => {
+        // Register admin upon connection
+        ws.send(JSON.stringify({ type: 'registerAdmin' }));
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const { userId, message, role } = data;
+
+        if (role === 'user' && !chats[userId]) {
+            const chatContainer = document.createElement('div');
+            chatContainer.id = `chat-${userId}`;
+            chatContainer.classList.add('user-chat');
+            chats[userId] = chatContainer;
+            document.getElementById('chats').appendChild(chatContainer);
+
+            const messageInput = document.createElement('input');
+            messageInput.classList.add('message-input');
+            messageInput.placeholder = 'Type your message...';
+
+            const sendButton = document.createElement('button');
+            sendButton.classList.add('send-button');
+            sendButton.textContent = 'Send';
+            sendButton.addEventListener('click', () => {
+                const msg = messageInput.value;
+                if (msg) {
+                    ws.send(JSON.stringify({ type: 'message', role: 'admin', userId, message: msg }));
+                    const messageElement = document.createElement('div');
+                    messageElement.textContent = 'You: ' + msg;
+                    chats[userId].appendChild(messageElement);
+                    messageInput.value = '';
+                    chats[userId].scrollTop = chats[userId].scrollHeight;
+                }
+            });
+
+            const chatWrapper = document.createElement('div');
+            chatWrapper.appendChild(chatContainer);
+            chatWrapper.appendChild(messageInput);
+            chatWrapper.appendChild(sendButton);
+            document.getElementById('chats').appendChild(chatWrapper);
+        }
+
+        if (role === 'user') {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = 'User: ' + message;
+            chats[userId].appendChild(messageElement);
+            chats[userId].scrollTop = chats[userId].scrollHeight;
+        }
+    };
+</script>
+</body>
+</html>
